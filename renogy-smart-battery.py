@@ -296,7 +296,8 @@ if __name__ == "__main__":
             else:
                 print('Error: could not determine slave address.')
         else:
-            slave_addresses = args.address
+            #slave_addresses = args.address
+            slave_addresses = [48,49]
 
         if slave_addresses != None:
             while(True):
