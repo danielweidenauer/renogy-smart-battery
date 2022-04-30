@@ -212,15 +212,16 @@ def scan_addresses(instrument):
     '''
     TEST_REGISTER = {'address':0x13b3, 'length':1, 'type':'uint',   'scaling':'identical'}
     instrument.serial.timeout = 0.1
+    address_list = []
     for address in range(0x01, 0xf8):
         instrument.address = address
         try:
             read_register(instrument, TEST_REGISTER)
-            return address
+            address_list += [address]
         except:
             pass           
     
-    return None
+    return address_list
 
 def read_registers(instrument):
     '''
@@ -244,24 +245,24 @@ def print_values_loop(instrument):
     '''
     global REGISTERS
 
-    while(True):
-        values = read_registers(instrument)
-        print('')
-        print('Register'.ljust(25)+'Address'.ljust(10)+'Value'.ljust(20).ljust(10)+'Binary'.ljust(35))
-        print('----------------------------------------------------------------------------------------------')
-        for key in values:
-            register_name = key.ljust(25)
-            address_string = "{0:#0{1}x}".format(REGISTERS[key]['address'],6).ljust(10)
-            if isinstance(values[key]['value'], float):
-                value_number_string = '{:.2f}'.format(values[key]['value'])
-            else:
-                value_number_string = str(values[key]['value'])
-            value_string = (value_number_string+' '+REGISTERS[key]['unit']).ljust(20)
-            binary_string = (' '.join(format(byte, '08b') for byte in values[key]['raw_bytes'])).ljust(35)
-            if len(binary_string) > 35:
-                binary_string = binary_string[:32]+'...'
-            print(register_name+address_string+value_string+binary_string)
-        time.sleep(1)
+    values = read_registers(instrument)
+    print('')
+    print(f'#### Target: {hex(instrument.address)} ####')
+    print('Register'.ljust(25)+'Address'.ljust(10)+'Value'.ljust(20).ljust(10)+'Binary'.ljust(35))
+    print('----------------------------------------------------------------------------------------------')
+    for key in values:
+        register_name = key.ljust(25)
+        address_string = "{0:#0{1}x}".format(REGISTERS[key]['address'],6).ljust(10)
+        if isinstance(values[key]['value'], float):
+            value_number_string = '{:.2f}'.format(values[key]['value'])
+        else:
+            value_number_string = str(values[key]['value'])
+        value_string = (value_number_string+' '+REGISTERS[key]['unit']).ljust(20)
+        binary_string = (' '.join(format(byte, '08b') for byte in values[key]['raw_bytes'])).ljust(35)
+        if len(binary_string) > 35:
+            binary_string = binary_string[:32]+'...'
+        print(register_name+address_string+value_string+binary_string)
+    time.sleep(1)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Renogy Smart Battery RS485 readout.')
@@ -288,18 +289,21 @@ if __name__ == "__main__":
 
         if args.scan_addresses:
             print('Scanning addresses...')
-            slave_address = scan_addresses(instrument)
+            slave_addresses = scan_addresses(instrument)
 
-            if(slave_address != None):
-                print(f'Slave address: {hex(slave_address)}')
+            if(slave_addresses != None):
+                print(f'Slave addresses: {" ".join(hex(element) for element in slave_addresses)}')
             else:
                 print('Error: could not determine slave address.')
         else:
-            slave_address = args.address
+            slave_addresses = args.address
 
-        if slave_address != None:
-            instrument.address = slave_address
-            instrument.serial.timeout = 0.2
-            print_values_loop(instrument)
+        if slave_addresses != None:
+            while(True):
+                for address in slave_addresses:
+                    instrument.address = address
+                    instrument.serial.timeout = 0.2
+                    print_values_loop(instrument)
+                time.sleep(1)    
 
 
