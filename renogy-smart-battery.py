@@ -7,10 +7,24 @@ This script features:
 The intention is to use it as a starting point to figure out the meaning of the register data of the renogy LIFEPO smart batteries.
 The global dictionary contains a complete list of all registers that the batteries respond to (although the meaning of many registers is still unknown)
 '''
+
+from influxdb_client import InfluxDBClient, Point
+from influxdb_client.client.write_api import SYNCHRONOUS
+
 import minimalmodbus
 import serial.tools.list_ports
 import argparse
 import time
+
+### INFLUX-Stuff
+database = "DATABASE"
+username = "USERNAME"
+password = "PASSWORD"
+
+retention_policy = "autogen"
+bucket = f'{database}/{retention_policy}'
+token = f'{username}:{password}'
+###
 
 REGISTERS = {
     # Abbreviations:
@@ -300,11 +314,35 @@ if __name__ == "__main__":
             slave_addresses = [48,49]
 
         if slave_addresses != None:
+            # Connect to InfluxDB:
+            # Using influxdb_client for influxdb-v1.8: https://github.com/influxdata/influxdb-client-python/blob/master/examples/influxdb_18_example.py
+            client = InfluxDBClient(url="127.0.0.1:8086", token=token, org='-')
+            write_api = client.write_api(write_options=SYNCHRONOUS)
+            print(client)
+            print(bucket)
+
             while(True):
                 for address in slave_addresses:
                     instrument.address = address
                     instrument.serial.timeout = 0.2
-                    print_values_loop(instrument)
+                    #print_values_loop(instrument)
+                    
+                    # Write to InfluxDB:
+                    device_serial = read_register(instrument,REGISTERS['serial'])
+                    voltage = read_register(instrument,REGISTERS['voltage'])
+                    current = read_register(instrument,REGISTERS['current'])
+                    remaining_charge = read_register(instrument,REGISTERS['remaining_charge'])
+                    
+                    point = Point("battery").tag("serial",device_serial['value']).field("voltage",voltage['value'])
+                    print(point.to_line_protocol())
+                    write_api.write(bucket=bucket,record=point)
+                    point = Point("battery").tag("serial",device_serial['value']).field("current",current['value'])
+                    print(point.to_line_protocol())
+                    write_api.write(bucket=bucket,record=point)
+                    point = Point("battery").tag("serial",device_serial['value']).field("remaining_charge",remaining_charge['value'])
+                    print(point.to_line_protocol())
+                    write_api.write(bucket=bucket,record=point)
+
                 time.sleep(1)    
 
 
