@@ -332,17 +332,23 @@ if __name__ == "__main__":
                     voltage = read_register(instrument,REGISTERS['voltage'])
                     current = read_register(instrument,REGISTERS['current'])
                     remaining_charge = read_register(instrument,REGISTERS['remaining_charge'])
-                    
                     point = Point("battery").tag("serial",device_serial['value']).field("voltage",voltage['value'])
                     print(point.to_line_protocol())
                     write_api.write(bucket=bucket,record=point)
                     point = Point("battery").tag("serial",device_serial['value']).field("current",current['value'])
                     print(point.to_line_protocol())
                     write_api.write(bucket=bucket,record=point)
-                    point = Point("battery").tag("serial",device_serial['value']).field("remaining_charge",remaining_charge['value'])
+                    
+                    if current['value'] > 320:
+                        current['value'] = current['value'] / 1000
+                    point = Point("battery").tag("serial",device_serial['value']).field("current_corrected",current['value'])
                     print(point.to_line_protocol())
                     write_api.write(bucket=bucket,record=point)
 
+                    point = Point("battery").tag("serial",device_serial['value']).field("remaining_charge",remaining_charge['value'])
+                    print(point.to_line_protocol())
+                    write_api.write(bucket=bucket,record=point)
+                
                 time.sleep(1)    
 
 
